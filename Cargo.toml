@@ -1,0 +1,11 @@
+[package]
+name = "phpbb3bbcode2markdown4nodebb"
+version = "0.0.1"
+
+[dependencies]
+regex = "*"
+marksman_escape = "*"
+bson = "*"
+mongodb = "*"
+lazy_static = "*"
+
