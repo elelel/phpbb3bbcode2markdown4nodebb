@@ -181,7 +181,7 @@ fn convert_attachment(state: &mut State, maybe_phpbb_tid: Option<u32>) {
         Some(phpbb_tid) => {
             state.skip_while_tag_not_closed();
             let intag = state.take_until_tag_open().unwrap().to_owned();
-            let re = Regex::new(r"(?is)<!-- ia. -->(.*?)<!-- ia. -->").unwrap();
+            let re = Regex::new(r"(?is)<!-- ia\d+ -->(.*?)<!-- ia\d+ -->").unwrap();
             match re.captures_iter(&*intag).next() {
                 Some(x) => {
                     let filename = "attached_image.txt";
