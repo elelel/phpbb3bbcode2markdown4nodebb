@@ -10,7 +10,7 @@ pub use bbcode::tags::KNOWN_TAGS;
 use self::regex::Regex;
 use self::marksman_escape::{Unescape};
 
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use std::io::Write;
 
 fn convert_quote(state: &mut State, nickname: &str) {
@@ -188,16 +188,12 @@ fn convert_attachment(state: &mut State, maybe_phpbb_tid: Option<u32>) {
                     let url = "/attached_images/".to_owned() + &*phpbb_tid.to_string() + "_" + x.at(1).unwrap();
                     let mut file = OpenOptions::new().write(true).append(true).open(filename);
                     match file {
-                        Ok(_) => {};
-                        Error(error) => {
-                            if error.code == 2 {
-                                file = OpenOptions::new().write(true).append(true).create(filename);
-                            } else {
-                                panic!("Unhandled error {} while opening attached images log", error);
-                            }
+                        Ok(_) => {},
+                        Err(_) => {
+			    file = File::create(filename);
                         }
                     }
-                    if let Err(e) = file.write_fmt(format_args!("{}\n", url)) {
+                    if let Err(e) = file.unwrap().write_fmt(format_args!("{}\n", url)) {
                         println!("Error writing attachment image log {}", e);
                     }
                     state.img_url = url.to_owned();
