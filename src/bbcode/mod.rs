@@ -79,7 +79,13 @@ fn convert_itallic_close(state: &mut State) {
 
 fn convert_url(state: &mut State, url: &str) {
     if url != "" {
-        state.url = String::from_utf8(Unescape::new(url.bytes()).collect()).unwrap();
+        match String::from_utf8(Unescape::new(url.bytes()).collect()) {
+            Ok(x) => state.url = x,
+            Err(_) => {
+                println!("Failed to unescape url {}", url);
+                state.url = url.to_owned()
+            }
+        }
     } else {
         state.url = "http:://link".to_string();
     }
@@ -96,10 +102,17 @@ fn convert_img(state: &mut State, img_url: &str) {
     state.img_url = img_url.to_owned();
     if &*img_url == "" {
         state.skip_while_tag_not_closed();
-        let img_url = state.take_until_tag_open().unwrap().to_owned();
-        state.img_url = String::from_utf8(Unescape::new(img_url.bytes()).collect()).unwrap();
-        //println!("Pushing intag img {}", &*state.img_url);
-        state.waiting_for_img_close = true;
+        match state.take_until_tag_open() {
+            Some(x) => {
+                state.img_url = String::from_utf8(Unescape::new(x.to_owned().bytes()).collect()).unwrap();
+                //println!("Pushing intag img {}", &*state.img_url);
+                state.waiting_for_img_close = true;
+            }
+            None => {
+                println!("Could not take until tag open: {}", state.input);
+            }
+        }
+
     } else {
         //println!("Appending value img {}", &*state.img_url);
         state.waiting_for_img_close = false;
@@ -145,17 +158,17 @@ fn convert_color_close(state: &mut State) {
 }
 
 fn convert_list(state: &mut State) {
-    println!("BBCode parser: no converter for list tag yet");
+//    println!("BBCode parser: no converter for list tag yet");
     state.move_next_char_to_output();
 }
 
 fn convert_list_item(state: &mut State) {
-    println!("BBCode parser: no converter for list item tag yet");
+//    println!("BBCode parser: no converter for list item tag yet");
     state.move_next_char_to_output();
 }
 
 fn convert_list_close(state: &mut State) {
-    println!("BBCode parser: no converter for /list tag yet");
+//    println!("BBCode parser: no converter for /list tag yet");
     state.move_next_char_to_output();
 }
 fn convert_email(state: &mut State) {
@@ -180,35 +193,44 @@ fn convert_attachment(state: &mut State, maybe_phpbb_tid: Option<u32>) {
     match maybe_phpbb_tid {
         Some(phpbb_tid) => {
             state.skip_while_tag_not_closed();
-            let intag = state.take_until_tag_open().unwrap().to_owned();
-            let re = Regex::new(r"(?is)<!-- ia\d+ -->(.*?)<!-- ia\d+ -->").unwrap();
-            match re.captures_iter(&*intag).next() {
-                Some(x) => {
-                    let filename = "attached_image.txt";
-                    let url = "/attached_images/".to_owned() + &*phpbb_tid.to_string() + "_" + x.at(1).unwrap();
-                    let mut file = OpenOptions::new().write(true).append(true).open(filename);
-                    match file {
-                        Ok(_) => {},
-                        Err(_) => {
-			    file = File::create(filename);
+            match state.take_until_tag_open() {
+                Some(intag) => {
+                    let re = Regex::new(r"(?is)<!-- ia\d+ -->(.*?)<!-- ia\d+ -->").unwrap();
+                    match re.captures_iter(&*intag).next() {
+                        Some(x) => {
+                            println!("Processing attachment");
+                            let filename = "attached_image.txt";
+                            let url = "/attached_images/".to_owned() + &*phpbb_tid.to_string() + "_" + x.at(1).unwrap();
+                            println!("New url will be {}", url);
+                            let mut file = OpenOptions::new().write(true).append(true).open(filename);
+                            match file {
+                                Ok(_) => {},
+                                Err(_) => {
+			            file = File::create(filename);
+                                }
+                            }
+                            if let Err(e) = file.unwrap().write_fmt(format_args!("{}\n", url)) {
+                                println!("Error writing attachment image log {}", e);
+                            }
+                            println!("Flushed to log file");
+                            state.img_url = url.to_owned();
+                            state.img_alt_text = "Attached image ".to_owned() + x.at(1).unwrap();
+                            println!("BBCode parser: pointing attached image url to {}", &*state.img_url);
+                            state.waiting_for_img_close = false;
+                            state.append_img();
+                        }
+                        None => {
+                            println!("BBCode parser: no converter for this attachment tag yet: {}", &*intag);
                         }
                     }
-                    if let Err(e) = file.unwrap().write_fmt(format_args!("{}\n", url)) {
-                        println!("Error writing attachment image log {}", e);
-                    }
-                    state.img_url = url.to_owned();
-                    state.img_alt_text = "Attached image ".to_owned() + x.at(1).unwrap();
-                    println!("BBCode parser: pointing attached image url to {}", &*state.img_url);
-                    state.waiting_for_img_close = false;
-                    state.append_img();
-                }
+                },
                 None => {
-                    println!("BBCode parser: no converter for this attachment tag yet: {}", &*intag);
+                    panic!("No closing tag for attachment");
                 }
             }
         },
         None => {
-            panic!("Can't generate image attachemtn url because phpbb topic id is not found")
+            panic!("Can't generate image attachment url because phpbb topic id is not found")
         }
     }
 }

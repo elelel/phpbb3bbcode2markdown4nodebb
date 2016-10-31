@@ -14,7 +14,9 @@ impl NodeBB2PhpBBMapper  {
         println!("Getting topic mappings, this will take a while...");
         let mut m = HashMap::new();
         let filter = doc! {
-            "_key" => { "$regex" => r"^topic:" }
+            "_key" => { "$regex" => r"^topic:" },
+            "tid" => { "$gt" => 0 },
+            "_imported_tid" => { "$gt" => 0 }
         };
         let cursor = coll.find(Some(filter.clone()), None).ok().expect("Failed to execute find topic");
         for item in cursor {
