@@ -10,6 +10,10 @@ pub use bbcode::tags::KNOWN_TAGS;
 use self::regex::Regex;
 use self::marksman_escape::{Unescape};
 
+use std::fs::OpenOptions;
+use std::io::Write;
+
+
 fn convert_quote(state: &mut State, nickname: &str) {
     if state.quote_level == 0 {
         state.append_end_line();
@@ -181,12 +185,18 @@ fn convert_attachment(state: &mut State, maybe_phpbb_tid: Option<u32>) {
             let re = Regex::new(r"(?is)<!-- ia. -->(.*?)<!-- ia. -->").unwrap();
             match re.captures_iter(&*intag).next() {
                 Some(x) => {
-                    state.img_url = "/attached_images/".to_owned() + &*phpbb_tid.to_string() + "_" + x.at(1).unwrap();
+                    let url = "/attached_images/".to_owned() + &*phpbb_tid.to_string() + "_" + x.at(1).unwrap();
+                    let mut file = OpenOptions::new().write(true)
+                        .append(true).open("attached_image.txt")
+                        .unwrap();
+                    if let Err(e) = file.write_fmt(format_args!("{}\n", url)) {
+                        println!("Error writing attachment image log {}", e);
+                    }
+                    state.img_url = url.to_owned();
                     state.img_alt_text = "Attached image ".to_owned() + x.at(1).unwrap();
                     println!("BBCode parser: pointing attached image url to {}", &*state.img_url);
                     state.waiting_for_img_close = false;
                     state.append_img();
-
                 }
                 None => {
                     println!("BBCode parser: no converter for this attachment tag yet: {}", &*intag);
