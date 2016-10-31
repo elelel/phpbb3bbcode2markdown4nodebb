@@ -13,7 +13,6 @@ use self::marksman_escape::{Unescape};
 use std::fs::OpenOptions;
 use std::io::Write;
 
-
 fn convert_quote(state: &mut State, nickname: &str) {
     if state.quote_level == 0 {
         state.append_end_line();
@@ -185,10 +184,19 @@ fn convert_attachment(state: &mut State, maybe_phpbb_tid: Option<u32>) {
             let re = Regex::new(r"(?is)<!-- ia. -->(.*?)<!-- ia. -->").unwrap();
             match re.captures_iter(&*intag).next() {
                 Some(x) => {
+                    let filename = "attached_image.txt";
                     let url = "/attached_images/".to_owned() + &*phpbb_tid.to_string() + "_" + x.at(1).unwrap();
-                    let mut file = OpenOptions::new().write(true)
-                        .append(true).open("attached_image.txt")
-                        .unwrap();
+                    let mut file = OpenOptions::new().write(true).append(true).open(filename);
+                    match file {
+                        Ok(_) => {};
+                        Error(error) => {
+                            if error.code == 2 {
+                                file = OpenOptions::new().write(true).append(true).create(filename);
+                            } else {
+                                panic!("Unhandled error {} while opening attached images log", error);
+                            }
+                        }
+                    }
                     if let Err(e) = file.write_fmt(format_args!("{}\n", url)) {
                         println!("Error writing attachment image log {}", e);
                     }
