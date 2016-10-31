@@ -51,6 +51,7 @@ impl NodeBB {
             }
         };
 
+        let mut counter = 0;
         let cursor = self.mongo_objects.find(Some(filter.clone()), None).ok().expect("Failed to execute find.");
         for item in cursor {
             match item {
@@ -99,7 +100,10 @@ impl NodeBB {
                     panic!("Failed to get next from server!");
                 },
             }
+            counter = counter + 1;
+            if counter % 1000 == 0 {
+                println!("Converted {} messages", counter);
+            }
         }
-        
     }
 }
